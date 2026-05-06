@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>AI去背工具</title>
+
+<!-- PWA -->
+
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#000000">
+
+<!-- AI -->
+
+<script src="https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/ort.min.js"></script>
+
+<style>
+body {
+  font-family: -apple-system, BlinkMacSystemFont, Arial;
+  padding: 20px;
+  background: #f5f5f5;
+  text-align: center;
+}
+
+h2 {
+  margin-bottom: 10px;
+}
+
+.container {
+  background: white;
+  padding: 15px;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+canvas {
+  max-width: 100%;
+  margin-top: 10px;
+  border-radius: 8px;
+  border: 1px solid #ddd;
+}
+
+button {
+  margin: 6px;
+  padding: 10px 14px;
+  border: none;
+  border-radius: 8px;
+  background: #007aff;
+  color: white;
+  font-size: 14px;
+}
+
+button:active {
+  opacity: 0.7;
+}
+
+input {
+  margin: 10px 0;
+}
+</style>
+
+</head>
+
+<body>
+
+<div class="container">
+
+<h2>AI 去背工具</h2>
+
+<input type="file" id="upload" accept="image/*"><br>
+
+<button onclick="removeBG()">AI 去背</button> <button onclick="downloadPNG()">下載透明PNG</button>
+
+<br>
+<canvas id="canvas"></canvas>
+
+</div>
+
+<script type="module">
+import { remove } from "https://unpkg.com/@bunnio/rembg-web/dist/index.js";
+
+const canvas = document.getElementById("canvas");
+const ctx = canvas.getContext("2d");
+
+let img = new Image();
+
+// 上傳圖片
+upload.onchange = e => {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+
+  reader.onload = ev => {
+    img.onload = () => {
+      canvas.width = img.width;
+      canvas.height = img.height;
+      ctx.drawImage(img, 0, 0);
+    };
+    img.src = ev.target.result;
+  };
+
+  reader.readAsDataURL(file);
+};
+
+// AI 去背
+window.removeBG = async function() {
+  if (!img.src) {
+    alert("請先上傳圖片");
+    return;
+  }
+
+  try {
+    alert("AI 去背中（首次會較慢）");
+
+    const blob = await fetch(img.src).then(r => r.blob());
+
+    const result = await remove(blob);
+
+    const url = URL.createObjectURL(result);
+
+    const newImg = new Image();
+    newImg.onload = () => {
+      canvas.width = newImg.width;
+      canvas.height = newImg.height;
+      ctx.clearRect(0,0,canvas.width,canvas.height);
+      ctx.drawImage(newImg, 0, 0);
+    };
+    newImg.src = url;
+
+  } catch (e) {
+    alert("去背失敗：" + e.message);
+  }
+};
+
+// 下載 PNG
+window.downloadPNG = function() {
+  if (!canvas.width) {
+    alert("沒有圖片");
+    return;
+  }
+
+  const link = document.createElement("a");
+  link.download = "no-bg.png";
+  link.href = canvas.toDataURL("image/png");
+  link.click();
+};
+</script>
+
+<!-- Service Worker -->
+
+<script>
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('service-worker.js');
+}
+</script>
+
+</body>
+</html>
